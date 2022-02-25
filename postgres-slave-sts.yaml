@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-slave
+  labels:
+    component: postgres-slave
+spec:
+  selector:
+    matchLabels:
+      component: postgres-slave
+  serviceName: postgres-slave
+  template:
+    metadata:
+      labels:
+        component: postgres-slave
+    spec:
+      initContainers:
+        - name: busybox
+          image: busybox
+          command:
+            - sh
+            - -c
+            - "cp /var/config/postgresql.conf /var/lib/postgresql/data/postgresql.conf && cp /var/config/recovery.conf /var/lib/postgresql/data/recovery.conf"
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data
+            - mountPath: /var/config/postgresql.conf
+              subPath: postgresql.conf
+              name: postgres-slave-configmap
+            - mountPath: /var/config/recovery.conf
+              subPath: recovery.conf
+              name: postgres-slave-configmap
+      containers:
+        - name: postgres
+          image: postgres:11
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: postgres-password
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data
+      volumes:
+        - name: postgres-slave-configmap
+          configMap:
+            name: postgres-slave-configmap
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-data-slave

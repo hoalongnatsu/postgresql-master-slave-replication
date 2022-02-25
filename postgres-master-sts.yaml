@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-master
+  labels:
+    component: postgres-master
+spec:
+  selector:
+    matchLabels:
+      component: postgres-master
+  serviceName: postgres-master
+  template:
+    metadata:
+      labels:
+        component: postgres-master
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:11
+          command:
+            [
+              "sh",
+              "-c",
+              "docker-entrypoint.sh -c config_file=/var/config/postgresql.conf -c hba_file=/var/config/pg_hba.conf",
+            ]
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: postgres-password
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data-master
+            - mountPath: /var/config
+              name: postgres-master-configmap
+      volumes:
+        - name: postgres-master-configmap
+          configMap:
+            name: postgres-master-configmap
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data-master
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: hostpath
+        resources:
+          requests:
+            storage: 5Gi
